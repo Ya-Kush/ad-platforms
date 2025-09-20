@@ -1,6 +1,39 @@
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
+using AdPlatforms.Back.Endpoints;
+using AdPlatforms.Back.Middlewares;
+using Scalar.AspNetCore;
 
-app.MapGet("/", () => "Hello World!");
+var bldr = WebApplication.CreateBuilder(args);
+var conf = bldr.Configuration;
+var envi = bldr.Environment;
+{
+    bldr.WebHost.UseKestrel(opts => opts.AddServerHeader = false);
+    bldr.Host.UseDefaultServiceProvider(opts =>
+        opts.ValidateScopes = opts.ValidateOnBuild = envi.IsDevelopment());
+}
 
-app.Run();
+var srvs = bldr.Services;
+{
+    srvs.AddLogging();
+    srvs.AddProblemDetails();
+    srvs.AddExceptionHandler<GlobalExceptionHandler>();
+
+    srvs.AddOpenApi();
+    srvs.AddHealthChecks();
+}
+
+var appl = bldr.Build();
+{
+    appl.UseExceptionHandler();
+
+    if (envi.IsDevelopment())
+    {
+        appl.MapOpenApi();
+        appl.MapScalarApiReference();
+    }
+
+    IEndpointRouteBuilder router = conf["RoutePrefix"] is { } prefix ? appl.MapGroup(prefix) : appl;
+    router.MapHealthChecks("/healthz");
+    router.MapPlatforms();
+
+    appl.Run();
+}
