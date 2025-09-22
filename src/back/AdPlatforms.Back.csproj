@@ -5,8 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>preview</LangVersion>
-    <TreatWarringsAsErrors>true</TreatWarringsAsErrors>
-    <WarringsNotAsErrors>1030</WarringsNotAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>1030</WarningsNotAsErrors>
   </PropertyGroup>
 
   <PropertyGroup>

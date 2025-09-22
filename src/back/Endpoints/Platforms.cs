@@ -15,11 +15,13 @@ public static class Platforms
     public record struct GetResponse(string Name);
     public static async Task<Results<Ok<GetResponse[]>, BadRequest>> Get([FromQuery(Name = "at")] string? location, CancellationToken cancel)
     {
+        await Task.Yield();
         throw new NotImplementedException();
     }
 
     public static async Task<Results<NoContent, ValidationProblem>> Load([FromBody] string list, CancellationToken cancel)
     {
+        await Task.Yield();
         throw new NotImplementedException();
     }
 }

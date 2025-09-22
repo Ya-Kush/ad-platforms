@@ -1,6 +1,14 @@
+using System.Text.RegularExpressions;
+using AdPlatforms.Back.Models.Exceptions;
+
 namespace AdPlatforms.Back.Models;
 
-public sealed record Location(string Name, Location? Owner)
+public readonly partial record struct Location(string Name)
 {
-    public bool PartOf(Location location) => location == this || Owner is { } && Owner.PartOf(location);
+    public string Path { get; } = SlashedAlphaRegex().IsMatch(Name) ? Name : throw new ModelException(inner: new ArgumentException());
+
+    public bool IsPartOf(Location location) => Path.Contains(location.Path);
+
+    [GeneratedRegex("^[a-z]+(/[a-z]+)*$")]
+    private static partial Regex SlashedAlphaRegex();
 }

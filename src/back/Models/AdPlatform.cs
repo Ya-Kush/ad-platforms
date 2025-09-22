@@ -1,9 +1,13 @@
+using AdPlatforms.Back.Models.Exceptions;
+
 namespace AdPlatforms.Back.Models;
 
-public sealed class AdPlatform(string name)
+public sealed partial record AdPlatform(string Name, IEnumerable<Location> Locations)
 {
-    public string Name { get; init; } = name;
-    public List<Location> Locations { get; } = [];
+    readonly HashSet<Location> _locations = [.. Locations];
 
-    public bool WorksAt(Location location) => Locations.Any(l => l.PartOf(location));
+    public string Name { get; } = !Name.IsWhiteSpace() ? Name : throw new ModelException(inner: new ArgumentException("The wrong format", nameof(Name)));
+    public IEnumerable<Location> Locations => _locations;
+
+    public bool WorksAt(Location location) => Locations.Contains(location);
 }
