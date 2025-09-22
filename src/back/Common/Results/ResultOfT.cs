@@ -7,9 +7,9 @@ public readonly record struct Result<T>
     readonly T? _value;
     readonly Func<Exception>? _exceptor;
 
-    public T Value => Successful ? _value! : throw Exception;
+    public T Value => Success ? _value! : throw Exception;
     public Exception Exception => Failure ? _exceptor!() : throw new InvalidOperationException();
-    public bool Successful => _exceptor is null;
+    public bool Success => _exceptor is null;
     public bool Failure => _exceptor is { };
 
     public Result() => _exceptor = () => new UninitailizedException();
