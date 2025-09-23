@@ -2,10 +2,12 @@ namespace AdPlatforms.Back.Common.Results;
 
 public readonly partial record struct Result
 {
+    public static Result Ok() => true;
     public static Result New(bool value) => value;
     public static Result New(bool value, Exception onFail) => value is { } ? value : onFail;
     public static Result New(bool value, Func<Exception> onFail) => value is { } ? value : onFail;
 
+    public static Result Fail() => false;
     public static Result Fail(Exception exception) => exception;
     public static Result Fail(Func<Exception> exceptor) => exceptor;
 

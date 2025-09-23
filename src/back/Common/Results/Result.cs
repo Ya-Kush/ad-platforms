@@ -11,10 +11,9 @@ public readonly partial record struct Result
     public bool Failure => _exceptor is { };
 
     public Result() => _exceptor = () => new UninitailizedException();
-    Result(Func<Exception>? exception = null) => _exceptor = exception is null
-        ? () => new NullValueException() : default;
+    Result(Func<Exception>? exceptor) => _exceptor = exceptor;
 
-    public static implicit operator Result(bool success) => new(success ? default : () => new FailureException());
-    public static implicit operator Result(Exception? exception) => new(exception is { } ? () => exception : null);
+    public static implicit operator Result(bool success) => new(success ? null : () => new FailureException());
+    public static implicit operator Result(Exception exception) => new(() => exception ?? new FailureException());
     public static implicit operator Result(Func<Exception> exceptor) => new(exceptor);
 }
