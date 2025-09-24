@@ -1,4 +1,4 @@
-namespace AdPlatforms.Back.Common.Results;
+namespace AdPlatforms.Common.Results;
 
 public static class ResultFunctionality
 {

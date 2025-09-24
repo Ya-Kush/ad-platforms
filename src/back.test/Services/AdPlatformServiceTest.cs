@@ -75,14 +75,14 @@ public sealed class AdPlatformServiceTest
     }
 
     [Fact]
-    public void TryParseAndLoad_Success() => Assert.True(Service.ParseAndLoad(dataExample).Success);
+    public void ParseAndLoad_Success() => Assert.True(Service.ParseAndLoad(dataExample).Success);
 
     [Theory,
     InlineData(":/ru"),
     InlineData("Some:"),
     InlineData(" :\t"),
     InlineData("Some:/ru:/r")]
-    public void TryParseAndLoad_ParseException(string data)
+    public void ParseAndLoad_ParseException(string data)
     {
         var res = Service.ParseAndLoad(data);
         Assert.True(res.Failure);
@@ -94,7 +94,7 @@ public sealed class AdPlatformServiceTest
     InlineData("some:/RU"),
     InlineData("some:/ru."),
     InlineData("some:/ru-msk")]
-    public void TryParseAndLoad_ValidationException(string data)
+    public void ParseAndLoad_ValidationException(string data)
     {
         var res = Service.ParseAndLoad(data);
         Assert.True(res.Failure);

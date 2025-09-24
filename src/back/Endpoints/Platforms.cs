@@ -1,6 +1,6 @@
-using AdPlatforms.Back.Common.Results;
 using AdPlatforms.Back.Models;
 using AdPlatforms.Back.Services;
+using AdPlatforms.Common.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using static Microsoft.AspNetCore.Http.TypedResults;

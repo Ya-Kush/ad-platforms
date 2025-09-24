@@ -29,4 +29,8 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.8.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\common\AdPlatforms.Common.csproj" />
+  </ItemGroup>
+
 </Project>

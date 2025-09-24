@@ -1,7 +1,7 @@
 using System.Collections.Frozen;
-using AdPlatforms.Back.Common.Results;
 using AdPlatforms.Back.Models;
 using AdPlatforms.Back.Models.Exceptions;
+using AdPlatforms.Common.Results;
 
 namespace AdPlatforms.Back.Services;
 
