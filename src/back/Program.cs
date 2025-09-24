@@ -34,9 +34,8 @@ var appl = bldr.Build();
         appl.MapScalarApiReference();
     }
 
-    IEndpointRouteBuilder router = conf["RoutePrefix"] is { } prefix ? appl.MapGroup(prefix) : appl;
-    router.MapHealthChecks("/healthz");
-    router.MapPlatforms();
+    appl.MapHealthChecks("/healthz");
+    appl.MapPlatforms();
 
     appl.Run();
 }

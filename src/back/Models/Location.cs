@@ -5,9 +5,9 @@ namespace AdPlatforms.Back.Models;
 
 public readonly partial record struct Location(string Path)
 {
-    public string Path { get; } = SlashedAlphaRegex().IsMatch(Path) ? Path
+    public string Path { get; } = PathRegex().IsMatch(Path) ? Path
         : throw new ModelException("The wrong format of location", new ArgumentException());
 
     [GeneratedRegex("^(/[a-z]+)+$")]
-    private static partial Regex SlashedAlphaRegex();
+    private static partial Regex PathRegex();
 }
