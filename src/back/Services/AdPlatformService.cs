@@ -11,7 +11,14 @@ public class ParseException(string? msg = null, Exception? inner = null) : AdPla
 public class ValidationException(string? msg = null, Exception? inner = null) : AdPlatformServiceException(msg, inner);
 public class NotFoundException(string? msg = null, Exception? inner = null) : AdPlatformServiceException(msg, inner);
 
-public sealed class AdPlatformService
+public interface IAdPlatformService
+{
+    Result<IEnumerable<AdPlatform>> FindAtLocation(Location location);
+    Result<IEnumerable<AdPlatform>> FindAtLocation(string path);
+    Result ParseAndLoad(string data);
+}
+
+public sealed class AdPlatformService : IAdPlatformService
 {
     readonly static Lock _lock = new();
     static FrozenDictionary<Location, FrozenSet<AdPlatform>>? _platforms;
@@ -20,13 +27,13 @@ public sealed class AdPlatformService
     {
         lock (_lock) return _platforms is { }
             ? _platforms.TryGetValue(location, out var value) ? value : new NotFoundException()
-            : new UninitializedException();
+            : new UninitializedException("Attempt to get value from an uninitialized service");
     }
     public Result<IEnumerable<AdPlatform>> FindAtLocation(string path) => Result.Try(
         () => new Location(path)).Match(FindAtLocation,
             e => e is ModelException ? new ValidationException(e.Message, e) : e);
 
-    public Result TryParseAndLoad(string data)
+    public Result ParseAndLoad(string data)
     {
         lock (_lock)
         {
@@ -54,9 +61,9 @@ public sealed class AdPlatformService
         var locations = ParseAndGroupLocations(adPlatformsAt.Keys);
 
         foreach (var (location, subs) in locations)
-        foreach (var sub in subs)
-        foreach (var platform in adPlatformsAt.TryGetValue(location, out var platforms) ? platforms : [])
-            add(sub, platform);
+            foreach (var sub in subs)
+                foreach (var platform in adPlatformsAt.TryGetValue(location, out var platforms) ? platforms : [])
+                    add(sub, platform);
 
         return res;
 
@@ -74,8 +81,8 @@ public sealed class AdPlatformService
             if (res.ContainsKey(location)) continue;
             var generals = parseLocation(location).ToArray();
             for (var i = 1; i <= generals.Length; i++)
-            for (var j = i; j <= generals.Length; j++)
-                add(generals[^i], generals[^j]);
+                for (var j = i; j <= generals.Length; j++)
+                    add(generals[^i], generals[^j]);
         }
         return res.ToFrozenDictionary(d => d.Key, d => (IReadOnlySet<Location>)d.Value.ToFrozenSet()).AsReadOnly();
 

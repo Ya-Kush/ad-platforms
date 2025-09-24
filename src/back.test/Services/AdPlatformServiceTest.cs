@@ -75,7 +75,7 @@ public sealed class AdPlatformServiceTest
     }
 
     [Fact]
-    public void TryParseAndLoad_Success() => Assert.True(Service.TryParseAndLoad(dataExample).Success);
+    public void TryParseAndLoad_Success() => Assert.True(Service.ParseAndLoad(dataExample).Success);
 
     [Theory,
     InlineData(":/ru"),
@@ -84,7 +84,7 @@ public sealed class AdPlatformServiceTest
     InlineData("Some:/ru:/r")]
     public void TryParseAndLoad_ParseException(string data)
     {
-        var res = Service.TryParseAndLoad(data);
+        var res = Service.ParseAndLoad(data);
         Assert.True(res.Failure);
         Assert.True(res.Exception is ParseException);
     }
@@ -96,7 +96,7 @@ public sealed class AdPlatformServiceTest
     InlineData("some:/ru-msk")]
     public void TryParseAndLoad_ValidationException(string data)
     {
-        var res = Service.TryParseAndLoad(data);
+        var res = Service.ParseAndLoad(data);
         Assert.True(res.Failure);
         Assert.True(res.Exception is ValidationException);
     }
@@ -104,7 +104,7 @@ public sealed class AdPlatformServiceTest
     [Fact]
     public void FindAtLocation()
     {
-        var res = Service.TryParseAndLoad(dataExample);
+        var res = Service.ParseAndLoad(dataExample);
         (string, int)[] expected = [
             ("/ru", 1),
             ("/ru/chelobl", 2),

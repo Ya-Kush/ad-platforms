@@ -1,5 +1,6 @@
 using AdPlatforms.Back.Endpoints;
 using AdPlatforms.Back.Middlewares;
+using AdPlatforms.Back.Services;
 using Scalar.AspNetCore;
 
 var bldr = WebApplication.CreateBuilder(args);
@@ -16,6 +17,8 @@ var srvs = bldr.Services;
     srvs.AddLogging();
     srvs.AddProblemDetails();
     srvs.AddExceptionHandler<GlobalExceptionHandler>();
+
+    srvs.AddScoped<IAdPlatformService, AdPlatformService>();
 
     srvs.AddOpenApi();
     srvs.AddHealthChecks();
