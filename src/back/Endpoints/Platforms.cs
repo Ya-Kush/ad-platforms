@@ -1,5 +1,9 @@
+using AdPlatforms.Back.Common.Results;
+using AdPlatforms.Back.Models;
+using AdPlatforms.Back.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using static Microsoft.AspNetCore.Http.TypedResults;
 
 namespace AdPlatforms.Back.Endpoints;
 
@@ -12,16 +16,24 @@ public static class Platforms
         platforms.MapPut("/", Load).WithName("LoadPlatforms").WithDescription("Load ad platfroms to the service. It operation overwrite all old data");
     }
 
-    public record struct GetResponse(string Name);
-    public static async Task<Results<Ok<GetResponse[]>, BadRequest>> Get([FromQuery(Name = "at")] string? location, CancellationToken cancel)
-    {
-        await Task.Yield();
-        throw new NotImplementedException();
-    }
+    public static Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>> Get([FromQuery(Name = "at")] string path, [FromServices] IAdPlatformService service, CancellationToken cancel)
+        => service.FindAtLocation(path)
+            .Match<IEnumerable<AdPlatform>, Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>>>(
+                platforms => Ok(platforms),
+                e => e switch
+                {
+                    NotFoundException => NotFound(),
+                    AdPlatformServiceException => BadRequest(e.Message),
+                    _ => throw e
+                });
 
-    public static async Task<Results<NoContent, ValidationProblem>> Load([FromBody] string list, CancellationToken cancel)
-    {
-        await Task.Yield();
-        throw new NotImplementedException();
-    }
+    public static Results<NoContent, BadRequest<string>> Load([FromBody] string data, [FromServices] IAdPlatformService service, CancellationToken cancel)
+        => service.ParseAndLoad(data)
+            .Match<Results<NoContent, BadRequest<string>>>(
+                () => NoContent(),
+                e => e switch
+                {
+                    AdPlatformServiceException => BadRequest(e.Message),
+                    _ => throw e
+                });
 }
