@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using AdPlatforms.Back.Models;
 using AdPlatforms.Back.Models.Exceptions;
 using AdPlatforms.Common.Results;
+using AdPlatforms.Common.Synchronization;
 
 namespace AdPlatforms.Back.Services;
 
@@ -13,40 +14,43 @@ public class NotFoundException(string? msg = null, Exception? inner = null) : Ad
 
 public interface IAdPlatformService
 {
-    Result<IEnumerable<AdPlatform>> FindAtLocation(Location location);
-    Result<IEnumerable<AdPlatform>> FindAtLocation(string path);
-    Result ParseAndLoad(string data);
+    ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(Location location);
+    ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(string path);
+    ValueTask<Result> ParseAndLoadAsync(string data);
 }
 
 public sealed class AdPlatformService : IAdPlatformService
 {
-    readonly static Lock _lock = new();
-    static FrozenDictionary<Location, FrozenSet<AdPlatform>>? _platforms;
+    FrozenDictionary<Location, FrozenSet<AdPlatform>>? _data;
+    readonly Gate _gate = new();
 
-    public Result<IEnumerable<AdPlatform>> FindAtLocation(Location location)
+    public async ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(Location location)
     {
-        lock (_lock) return _platforms is { }
-            ? _platforms.TryGetValue(location, out var value) ? value : new NotFoundException()
-            : new UninitializedException("Attempt to get value from an uninitialized service");
+        await _gate.CrossAsync(this);
+        return _data is null ? new UninitializedException("Attempt to get value from an uninitialized service")
+            : _data.TryGetValue(location, out var value) ? value : new NotFoundException();
     }
-    public Result<IEnumerable<AdPlatform>> FindAtLocation(string path) => Result.Try(
-        () => new Location(path)).Match(FindAtLocation,
-            e => e is ModelException ? new ValidationException(e.Message, e) : e);
 
-    public Result ParseAndLoad(string data)
+    public async ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(string path)
+        => await Result.TryAsync(async () => await FindAtLocationAsync(new Location(path)))
+            .MatchAsync(_ => _, e => e is ModelException ? new ValidationException(e.Message, e) : e);
+
+    public async ValueTask<Result> ParseAndLoadAsync(string data)
     {
-        lock (_lock)
+        await using (await _gate.ScopedCloseAsync())
         {
-            var res = Result.Try(() => { _platforms = ParseInlineData(data).ToFrozenDictionary(g => g.Key, g => g.Value.ToFrozenSet()); });
-            return res.Failure && res.Exception is ModelException e
-                ? new ValidationException(e.Message, e) : res;
+            var res = Result.Try(() => ParseInlineData(data));
+            if (res.Success) _data = res.Value.ToFrozenDictionary(x => x.Key, x => x.Value.ToFrozenSet());
+
+            return res.Match(_ => Result.Ok(), e => e is ModelException ? new ValidationException(e.Message, e) : e);
         }
     }
 
-    static StringSplitOptions TrimAndSift => StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+
     internal static Dictionary<Location, HashSet<AdPlatform>> ParseInlineData(string data)
     {
-        var lines = data.Split(['\n', '\r'], TrimAndSift);
+        var trimAndSift = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
+        var lines = data.Split(['\n', '\r'], trimAndSift);
         if (lines is []) throw new ValidationException("Data was blank");
 
         Dictionary<Location, HashSet<AdPlatform>> res = new(lines.Length);
@@ -67,9 +71,9 @@ public sealed class AdPlatformService : IAdPlatformService
 
         return res;
 
-        static (AdPlatform platform, IEnumerable<Location> locations) parseDataLineToAdPlatform(string line, int i)
-            => line.Split(':', TrimAndSift) is [var platform, var paths]
-            ? (new(platform), paths.Split(',', TrimAndSift).Select(p => new Location(p)))
+        (AdPlatform platform, IEnumerable<Location> locations) parseDataLineToAdPlatform(string line, int i)
+            => line.Split(':', trimAndSift) is [var platform, var paths]
+            ? (new(platform), paths.Split(',', trimAndSift).Select(p => new Location(p)))
             : throw new ParseException($"The wrong format of data. Occurred in {i}th row");
     }
 

@@ -1,5 +1,4 @@
-﻿using System.Threading.Tasks;
-using AdPlatforms.Common.Synchronization;
+﻿using AdPlatforms.Common.Synchronization;
 
 namespace AdPlatforms.Common.Synchonization.Test;
 
@@ -52,11 +51,27 @@ public sealed class GateTest
             await Task.Delay(10);
             tasks = keys.Select(k => gate.CrossAsync(k).AsTask()).ToArray();
             Assert.Equal([false, false], tasks.Select(t => t.IsCompleted));
-    
+
             var t = gate.CrossAsync(s);
             await Task.Delay(10);
             Assert.True(t.IsCompleted);
         }
+        Assert.Equal([true, true], tasks.Select(t => t.IsCompleted));
+    }
+    
+    [Fact]
+    public async Task ScopedClose_Plural()
+    {
+        var gate = new Gate();
+
+        await gate.CloseAsync(this);
+        var tasks = Enumerable.Range(0, 2)
+            .Select(async _ => { await using var s = await gate.ScopedCloseAsync(); })
+            .ToArray();
+
+        Assert.Equal([false, false], tasks.Select(t => t.IsCompleted));
+        await gate.OpenAsync(this);
+        await Task.Delay(10);
         Assert.Equal([true, true], tasks.Select(t => t.IsCompleted));
     }
 }

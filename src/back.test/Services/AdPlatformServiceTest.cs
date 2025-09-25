@@ -13,7 +13,6 @@ public sealed class AdPlatformServiceTest
 
     AdPlatformService Service { get; } = new();
 
-
     [Fact]
     internal void ParseAndGroupLocations()
     {
@@ -75,16 +74,17 @@ public sealed class AdPlatformServiceTest
     }
 
     [Fact]
-    public void ParseAndLoad_Success() => Assert.True(Service.ParseAndLoad(dataExample).Success);
+    public async Task ParseAndLoad_Success()
+        => Assert.True((await Service.ParseAndLoadAsync(dataExample)).Success);
 
     [Theory,
     InlineData(":/ru"),
     InlineData("Some:"),
     InlineData(" :\t"),
     InlineData("Some:/ru:/r")]
-    public void ParseAndLoad_ParseException(string data)
+    public async Task ParseAndLoad_ParseException(string data)
     {
-        var res = Service.ParseAndLoad(data);
+        var res = await Service.ParseAndLoadAsync(data);
         Assert.True(res.Failure);
         Assert.True(res.Exception is ParseException);
     }
@@ -94,17 +94,17 @@ public sealed class AdPlatformServiceTest
     InlineData("some:/RU"),
     InlineData("some:/ru."),
     InlineData("some:/ru-msk")]
-    public void ParseAndLoad_ValidationException(string data)
+    public async Task ParseAndLoad_ValidationException(string data)
     {
-        var res = Service.ParseAndLoad(data);
+        var res = await Service.ParseAndLoadAsync(data);
         Assert.True(res.Failure);
         Assert.True(res.Exception is ValidationException);
     }
 
     [Fact]
-    public void FindAtLocation()
+    public async Task FindAtLocation()
     {
-        var res = Service.ParseAndLoad(dataExample);
+        var res = await Service.ParseAndLoadAsync(dataExample);
         (string, int)[] expected = [
             ("/ru", 1),
             ("/ru/chelobl", 2),
@@ -114,10 +114,36 @@ public sealed class AdPlatformServiceTest
             ("/ru/svrd/revda", 3),
             ("/ru/svrd/pervik", 3),
         ];
-        var results = expected.Select(pair => Service.FindAtLocation(pair.Item1)).ToArray();
+
+        var results = await Task.WhenAll(expected.Select(pair => Service.FindAtLocationAsync(pair.Item1).AsTask()));
 
         Assert.True(results.All(r => r.Success));
         var actual = results.Select(r => r.Value).ToArray();
         Assert.Equal(expected.Select(e => e.Item2), actual.Select(a => a.Count()));
+    }
+
+    [Fact]
+    public async Task FindFindAtLocation_Uninitial()
+    {
+        var res = await Service.FindAtLocationAsync(new Location("/ru"));
+        Assert.True(res.Failure);
+        Assert.IsType<UninitializedException>(res.Exception);
+    }
+
+    [Fact]
+    public async Task FindFindAtLocation_NotFound()
+    {
+        await Service.ParseAndLoadAsync("a:/a");
+        var res = await Service.FindAtLocationAsync(new Location("/some/not/stored/path"));
+        Assert.True(res.Failure);
+        Assert.IsType<NotFoundException>(res.Exception);
+    }
+
+    [Fact]
+    public async Task FindFindAtLocation_InvalidModel()
+    {
+        var res = await Service.FindAtLocationAsync("/some/WRONG/path");
+        Assert.True(res.Failure);
+        Assert.IsType<ValidationException>(res.Exception);
     }
 }

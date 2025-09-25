@@ -18,7 +18,7 @@ var srvs = bldr.Services;
     srvs.AddProblemDetails();
     srvs.AddExceptionHandler<GlobalExceptionHandler>();
 
-    srvs.AddScoped<IAdPlatformService, AdPlatformService>();
+    srvs.AddSingleton<IAdPlatformService, AdPlatformService>();
 
     srvs.AddOpenApi();
     srvs.AddHealthChecks();
