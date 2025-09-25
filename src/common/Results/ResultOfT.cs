@@ -21,4 +21,5 @@ public readonly record struct Result<T>
     public static implicit operator Result<T>(T? value) => new(value);
     public static implicit operator Result<T>(Exception exception) => new(default, () => exception);
     public static implicit operator Result<T>(Func<Exception> exceptor) => new(default, exceptor);
+    public static implicit operator Result(Result<T> result) => result.Success ? true : result._exceptor!;
 }

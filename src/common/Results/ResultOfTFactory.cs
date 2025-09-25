@@ -20,4 +20,16 @@ public readonly partial record struct Result
             catch (Exception e) { return e; }
         }
     }
+
+    public static async ValueTask<Result<T>> TryAsync<T>(Func<Task<T?>> trier) { try { return await trier(); } catch (Exception e) { return e; } }
+    public static async ValueTask<Result<T>> TryAsync<T>(Func<Task<T?>> trier, Exception onFail) { try { return await trier(); } catch { return onFail; } }
+    public static async ValueTask<Result<T>> TryAsync<T>(Func<Task<T?>> trier, Func<Exception> onFail)
+    {
+        try { return await trier(); }
+        catch
+        {
+            try { return onFail(); }
+            catch (Exception e) { return e; }
+        }
+    }
 }
