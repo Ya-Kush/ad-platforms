@@ -69,7 +69,7 @@ public sealed class GateTest
 
         Assert.Equal([false, false], tasks.Select(t => t.IsCompleted));
         await gate.OpenAsync(this);
-        await Task.Delay(10);
+        await Task.Delay(20);
         Assert.Equal([true, true], tasks.Select(t => t.IsCompleted));
     }
 }

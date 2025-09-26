@@ -52,7 +52,7 @@ public sealed class AdPlatformService : IAdPlatformService
     internal static Dictionary<Location, HashSet<AdPlatform>> ParseInlineData(string data)
     {
         var trimAndSift = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
-        var lines = data.Split(['\n', '\r'], trimAndSift);
+        var lines = data.Split(["\n", "\n\r"], trimAndSift);
         if (lines is []) throw new ValidationException("Data was blank");
 
         Dictionary<Location, HashSet<AdPlatform>> res = new(lines.Length);
