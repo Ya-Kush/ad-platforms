@@ -74,17 +74,17 @@ public sealed class AdPlatformServiceTest
     }
 
     [Fact]
-    public async Task ParseAndLoad_Success()
-        => Assert.True((await Service.ParseAndLoadAsync(dataExample)).Success);
+    public void ParseAndLoad_Success()
+        => Assert.True(Service.ParseAndLoad(dataExample).Success);
 
     [Theory,
     InlineData(":/ru"),
     InlineData("Some:"),
     InlineData(" :\t"),
     InlineData("Some:/ru:/r")]
-    public async Task ParseAndLoad_ParseException(string data)
+    public void ParseAndLoad_ParseException(string data)
     {
-        var res = await Service.ParseAndLoadAsync(data);
+        var res = Service.ParseAndLoad(data);
         Assert.True(res.Failure);
         Assert.True(res.Exception is ParseException);
     }
@@ -94,17 +94,17 @@ public sealed class AdPlatformServiceTest
     InlineData("some:/RU"),
     InlineData("some:/ru."),
     InlineData("some:/ru-msk")]
-    public async Task ParseAndLoad_ValidationException(string data)
+    public void ParseAndLoad_ValidationException(string data)
     {
-        var res = await Service.ParseAndLoadAsync(data);
+        var res = Service.ParseAndLoad(data);
         Assert.True(res.Failure);
         Assert.True(res.Exception is ValidationException);
     }
 
     [Fact]
-    public async Task FindAtLocation()
+    public void FindAtLocation()
     {
-        var res = await Service.ParseAndLoadAsync(dataExample);
+        var res = Service.ParseAndLoad(dataExample);
         (string, int)[] expected = [
             ("/ru", 1),
             ("/ru/chelobl", 2),
@@ -115,7 +115,7 @@ public sealed class AdPlatformServiceTest
             ("/ru/svrd/pervik", 3),
         ];
 
-        var results = await Task.WhenAll(expected.Select(pair => Service.FindAtLocationAsync(pair.Item1).AsTask()));
+        var results = expected.Select(pair => Service.FindAtLocation(pair.Item1));
 
         Assert.True(results.All(r => r.Success));
         var actual = results.Select(r => r.Value).ToArray();
@@ -123,26 +123,26 @@ public sealed class AdPlatformServiceTest
     }
 
     [Fact]
-    public async Task FindFindAtLocation_Uninitial()
+    public void FindFindAtLocation_Uninitial()
     {
-        var res = await Service.FindAtLocationAsync(new Location("/ru"));
+        var res = Service.FindAtLocationAsync(new Location("/ru"));
         Assert.True(res.Failure);
         Assert.IsType<UninitializedException>(res.Exception);
     }
 
     [Fact]
-    public async Task FindFindAtLocation_NotFound()
+    public void FindFindAtLocation_NotFound()
     {
-        await Service.ParseAndLoadAsync("a:/a");
-        var res = await Service.FindAtLocationAsync(new Location("/some/not/stored/path"));
+        Service.ParseAndLoad("a:/a");
+        var res = Service.FindAtLocationAsync(new Location("/some/not/stored/path"));
         Assert.True(res.Failure);
         Assert.IsType<NotFoundException>(res.Exception);
     }
 
     [Fact]
-    public async Task FindFindAtLocation_InvalidModel()
+    public void FindFindAtLocation_InvalidModel()
     {
-        var res = await Service.FindAtLocationAsync("/some/WRONG/path");
+        var res = Service.FindAtLocation("/some/WRONG/path");
         Assert.True(res.Failure);
         Assert.IsType<ValidationException>(res.Exception);
     }

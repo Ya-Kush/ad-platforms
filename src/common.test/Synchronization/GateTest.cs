@@ -1,6 +1,4 @@
-﻿using AdPlatforms.Common.Synchronization;
-
-namespace AdPlatforms.Common.Synchonization.Test;
+﻿namespace AdPlatforms.Common.Synchronization.Test;
 
 public sealed class GateTest
 {

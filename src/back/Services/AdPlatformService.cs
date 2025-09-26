@@ -14,30 +14,32 @@ public class NotFoundException(string? msg = null, Exception? inner = null) : Ad
 
 public interface IAdPlatformService
 {
-    ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(Location location);
-    ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(string path);
-    ValueTask<Result> ParseAndLoadAsync(string data);
+    Result<IEnumerable<AdPlatform>> FindAtLocationAsync(Location location);
+    Result<IEnumerable<AdPlatform>> FindAtLocation(string path);
+    Result ParseAndLoad(string data);
 }
 
 public sealed class AdPlatformService : IAdPlatformService
 {
     FrozenDictionary<Location, FrozenSet<AdPlatform>>? _data;
-    readonly Gate _gate = new();
+    readonly ScopedReaderWriterLockSlim _lock = new();
 
-    public async ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(Location location)
+    public Result<IEnumerable<AdPlatform>> FindAtLocationAsync(Location location)
     {
-        await _gate.CrossAsync(this);
-        return _data is null ? new UninitializedException("Attempt to get value from an uninitialized service")
-            : _data.TryGetValue(location, out var value) ? value : new NotFoundException();
+        using (_lock.ScopedRead())
+        {
+            return _data is null ? new UninitializedException("Attempt to get value from an uninitialized service")
+                : _data.TryGetValue(location, out var value) ? value : new NotFoundException();
+        }
     }
 
-    public async ValueTask<Result<IEnumerable<AdPlatform>>> FindAtLocationAsync(string path)
-        => await Result.TryAsync(async () => await FindAtLocationAsync(new Location(path)))
-            .MatchAsync(_ => _, e => e is ModelException ? new ValidationException(e.Message, e) : e);
+    public Result<IEnumerable<AdPlatform>> FindAtLocation(string path)
+        => Result.Try(() => new Location(path))
+            .Match(FindAtLocationAsync, e => e is ModelException ? new ValidationException(e.Message, e) : e);
 
-    public async ValueTask<Result> ParseAndLoadAsync(string data)
+    public Result ParseAndLoad(string data)
     {
-        await using (await _gate.ScopedCloseAsync())
+        using (_lock.ScopedWrite())
         {
             var res = Result.Try(() => ParseInlineData(data));
             if (res.Success) _data = res.Value.ToFrozenDictionary(x => x.Key, x => x.Value.ToFrozenSet());

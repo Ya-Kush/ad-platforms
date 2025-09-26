@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 
 namespace AdPlatforms.Common.Synchronization;
 
-public sealed class Gate
+internal sealed class Gate
 {
     object? _closedBy;
     public async ValueTask OpenAsync(object who)

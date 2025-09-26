@@ -16,9 +16,9 @@ public static class Platforms
         platforms.MapPut("/", Load).WithName("LoadPlatforms").WithDescription("Load ad platfroms to the service. It operation overwrite all old data");
     }
 
-    public static async Task<Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>>> Get([FromQuery(Name = "at")] string path, [FromServices] IAdPlatformService service, CancellationToken cancel)
-        => await service.FindAtLocationAsync(path)
-           .MatchAsync<IEnumerable<AdPlatform>, Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>>>(
+    public static Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>> Get([FromQuery(Name = "at")] string path, [FromServices] IAdPlatformService service, CancellationToken cancel)
+        => service.FindAtLocation(path)
+           .Match<IEnumerable<AdPlatform>, Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>>>(
                platforms => Ok(platforms),
                e => e switch
                {
@@ -27,9 +27,9 @@ public static class Platforms
                    _ => throw e
                });
 
-    public static async Task<Results<NoContent, BadRequest<string>>> Load([FromBody] string data, [FromServices] IAdPlatformService service, CancellationToken cancel)
-        => await service.ParseAndLoadAsync(data)
-            .MatchAsync<Results<NoContent, BadRequest<string>>>(
+    public static Results<NoContent, BadRequest<string>> Load([FromBody] string data, [FromServices] IAdPlatformService service, CancellationToken cancel)
+        => service.ParseAndLoad(data)
+            .Match<Results<NoContent, BadRequest<string>>>(
                 () => NoContent(),
                 e => e switch
                 {
