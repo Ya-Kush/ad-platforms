@@ -14,7 +14,7 @@ public sealed class AdPlatformServiceTest
     AdPlatformService Service { get; } = new();
 
     [Fact]
-    internal void ParseAndGroupLocations()
+    internal void UnravelAndGroupLocations()
     {
         var locations = ((string[])
         [
@@ -35,7 +35,7 @@ public sealed class AdPlatformServiceTest
             ("/x/y/z", ["/x/y/z"]),
         ]).Select(gs => (gen: new Location(gs.gen), subs: gs.subs.Select(s => new Location(s)).ToArray())).ToArray();
 
-        var actual = AdPlatformService.ParseAndGroupLocations(locations);
+        var actual = AdPlatformService.UnravelAndGroupLocations(locations);
 
         Assert.Equal(expected.Length, actual.Count);
         foreach (var (gen, subs) in expected)
@@ -43,17 +43,49 @@ public sealed class AdPlatformServiceTest
     }
 
     [Fact]
-    internal void ParseInlineData()
+    internal void GetDataLines()
+    {
+        var data = $"""
+            qwer:/a,/x
+            jkl:/a/b/c/d
+            asdf:/a/aa,/x/y
+            zxcv:/a/b,/x/y/z
+            """;
+        var expected = (string[])
+        [
+            "qwer:/a,/x",
+            "jkl:/a/b/c/d",
+            "asdf:/a/aa,/x/y",
+            "zxcv:/a/b,/x/y/z"
+        ];
+
+        var res = AdPlatformService.GetDataLines(data);
+
+        Assert.Equal(expected, res);
+    }
+
+    [Fact]
+    internal void GetDataLines_ValidationException()
+    {
+        var wrong = (string[])["", " ", "\t\n"];
+
+        foreach (var w in wrong)
+            Assert.Throws<ValidationException>(()
+                => AdPlatformService.GetDataLines(w));
+    }
+
+    [Fact]
+    internal void ParseDataLines()
     {
         string qwer, jkl, asdf, zxcv;
         (qwer, jkl, asdf, zxcv) =
         (nameof(qwer), nameof(jkl), nameof(asdf), nameof(zxcv));
-        var inlineData = $"""
-            {qwer}:/a,/x
-            {jkl}:/a/b/c/d
-            {asdf}:/a/aa,/x/y
-            {zxcv}:/a/b,/x/y/z
-            """;
+        var data = (string[])[
+            $"{qwer}:/a,/x",
+            $"{jkl}:/a/b/c/d",
+            $"{asdf}:/a/aa,/x/y",
+            $"{zxcv}:/a/b,/x/y/z",
+        ];
         var expected = (((string, string[])[])
         [
             ("/a", [qwer]),
@@ -66,7 +98,7 @@ public sealed class AdPlatformServiceTest
             ("/x/y/z", [qwer, asdf, zxcv]),
         ]).ToDictionary(gs => new Location(gs.Item1), gs => gs.Item2.Select(s => new AdPlatform(s)).ToHashSet());
 
-        var actual = AdPlatformService.ParseInlineData(inlineData);
+        var actual = AdPlatformService.ParseDataLines(data);
 
         Assert.Equal(expected.Count, actual.Count);
         foreach (var (location, platforms) in expected)
@@ -125,7 +157,7 @@ public sealed class AdPlatformServiceTest
     [Fact]
     public void FindFindAtLocation_Uninitial()
     {
-        var res = Service.FindAtLocationAsync(new Location("/ru"));
+        var res = Service.FindAtLocation(new Location("/ru"));
         Assert.True(res.Failure);
         Assert.IsType<UninitializedException>(res.Exception);
     }
@@ -134,7 +166,7 @@ public sealed class AdPlatformServiceTest
     public void FindFindAtLocation_NotFound()
     {
         Service.ParseAndLoad("a:/a");
-        var res = Service.FindAtLocationAsync(new Location("/some/not/stored/path"));
+        var res = Service.FindAtLocation(new Location("/some/not/stored/path"));
         Assert.True(res.Failure);
         Assert.IsType<NotFoundException>(res.Exception);
     }

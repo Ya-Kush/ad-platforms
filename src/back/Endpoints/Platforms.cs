@@ -13,10 +13,10 @@ public static class Platforms
     {
         var platforms = router.MapGroup("/platforms");
         platforms.MapGet("/", Get).WithName("GetPlatforms").WithDescription("Get ad platforms. Can be filtered by location");
-        platforms.MapPut("/", Load).WithName("LoadPlatforms").WithDescription("Load ad platfroms to the service. It operation overwrite all old data");
+        platforms.MapPut("/", LoadFile).WithName("LoadPlatforms").WithDescription("Load file of ad platfroms to the service. It operation overwrite all old data");
     }
 
-    public static Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>> Get([FromQuery(Name = "at")] string path, [FromServices] IAdPlatformService service, CancellationToken cancel)
+    public static Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>> Get([FromQuery(Name = "at")] string path, [FromServices] IAdPlatformService service)
         => service.FindAtLocation(path)
            .Match<IEnumerable<AdPlatform>, Results<Ok<IEnumerable<AdPlatform>>, NotFound, BadRequest<string>>>(
                platforms => Ok(platforms),
@@ -27,7 +27,7 @@ public static class Platforms
                    _ => throw e
                });
 
-    public static Results<NoContent, BadRequest<string>> Load([FromBody] string data, [FromServices] IAdPlatformService service, CancellationToken cancel)
+    public static Results<NoContent, BadRequest<string>> LoadFile(Stream data, [FromServices] IAdPlatformService service)
         => service.ParseAndLoad(data)
             .Match<Results<NoContent, BadRequest<string>>>(
                 () => NoContent(),

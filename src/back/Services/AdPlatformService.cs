@@ -14,17 +14,19 @@ public class NotFoundException(string? msg = null, Exception? inner = null) : Ad
 
 public interface IAdPlatformService
 {
-    Result<IEnumerable<AdPlatform>> FindAtLocationAsync(Location location);
+    Result<IEnumerable<AdPlatform>> FindAtLocation(Location location);
     Result<IEnumerable<AdPlatform>> FindAtLocation(string path);
     Result ParseAndLoad(string data);
+    Result ParseAndLoad(Stream data);
 }
 
 public sealed class AdPlatformService : IAdPlatformService
 {
     FrozenDictionary<Location, FrozenSet<AdPlatform>>? _data;
     readonly ScopedReaderWriterLockSlim _lock = new();
+    const StringSplitOptions TrimAndSift = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
 
-    public Result<IEnumerable<AdPlatform>> FindAtLocationAsync(Location location)
+    public Result<IEnumerable<AdPlatform>> FindAtLocation(Location location)
     {
         using (_lock.ScopedRead())
         {
@@ -35,68 +37,87 @@ public sealed class AdPlatformService : IAdPlatformService
 
     public Result<IEnumerable<AdPlatform>> FindAtLocation(string path)
         => Result.Try(() => new Location(path))
-            .Match(FindAtLocationAsync, e => e is ModelException ? new ValidationException(e.Message, e) : e);
+            .Match(FindAtLocation, e => e is ModelException ? new ValidationException(e.Message, e) : e);
 
-    public Result ParseAndLoad(string data)
+    public Result ParseAndLoad(string text) => Result.Try(() => GetDataLines(text)).Match(ParseAndLoad, _ => _);
+    public Result ParseAndLoad(Stream stream) => Result.Try(() => GetDataLines(stream).ToBlockingEnumerable()).Match(ParseAndLoad, _ => _);
+    public Result ParseAndLoad(IEnumerable<string> lines)
     {
         using (_lock.ScopedWrite())
         {
-            var res = Result.Try(() => ParseInlineData(data));
-            if (res.Success) _data = res.Value.ToFrozenDictionary(x => x.Key, x => x.Value.ToFrozenSet());
-
-            return res.Match(_ => Result.Ok(), e => e is ModelException ? new ValidationException(e.Message, e) : e);
+            return Result.Try(() => ParseDataLines(lines)).Match(
+                v => { _data = v.ToFrozen(); return Result.Ok(); },
+                e => e is ModelException ? new ValidationException(e.Message, e) : e);
         }
     }
 
-
-    internal static Dictionary<Location, HashSet<AdPlatform>> ParseInlineData(string data)
+    internal static IEnumerable<string> GetDataLines(string data)
     {
-        var trimAndSift = StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries;
-        var lines = data.Split(["\n", "\n\r"], trimAndSift);
-        if (lines is []) throw new ValidationException("Data was blank");
+        if (data.IsWhiteSpace()) throw new ValidationException("Data was blank");
+        var lines = data.Split(['\n', '\r'], TrimAndSift);
+        return lines;
+    }
+    #warning need to test GetDataLines
+    internal static async IAsyncEnumerable<string> GetDataLines(Stream stream)
+    {
+        using var reader = new StreamReader(stream);
 
-        Dictionary<Location, HashSet<AdPlatform>> res = new(lines.Length);
-        void add(Location l, AdPlatform p) => (res.TryGetValue(l, out var set) ? set : res[l] = []).Add(p);
+        string? line;
+        while ((line = await reader.ReadLineAsync()) is { })
+            if (line.IsWhiteSpace()) continue;
+            else yield return line.Trim();
+    }
 
-        var adPlatformsAt = lines
-            .Select(parseDataLineToAdPlatform)
+    internal static HashSetDictionary<Location, AdPlatform> ParseDataLines(IEnumerable<string> lines)
+    {
+        HashSetDictionary<Location, AdPlatform> res = [];
+
+        var platformsAt = lines
+            .Select(ParseDataLine)
             .SelectMany(p => p.locations, (p, l) => (location: l, p.platform))
             .GroupBy(lp => lp.location, lp => lp.platform)
             .ToFrozenDictionary(g => g.Key, g => g.ToFrozenSet());
 
-        var locations = ParseAndGroupLocations(adPlatformsAt.Keys);
+        var locations = UnravelAndGroupLocations(platformsAt.Keys);
 
         foreach (var (location, subs) in locations)
             foreach (var sub in subs)
-                foreach (var platform in adPlatformsAt.TryGetValue(location, out var platforms) ? platforms : [])
-                    add(sub, platform);
+                foreach (var platform in platformsAt.TryGetValue(location, out var platforms) ? platforms : [])
+                    res.Add(sub, platform);
 
         return res;
-
-        (AdPlatform platform, IEnumerable<Location> locations) parseDataLineToAdPlatform(string line, int i)
-            => line.Split(':', trimAndSift) is [var platform, var paths]
-            ? (new(platform), paths.Split(',', trimAndSift).Select(p => new Location(p)))
-            : throw new ParseException($"The wrong format of data. Occurred in {i}th row");
     }
 
-    internal static IReadOnlyDictionary<Location, IReadOnlySet<Location>> ParseAndGroupLocations(IEnumerable<Location> locations)
+    #warning need to test ParseDataLine
+    internal static (AdPlatform platform, IEnumerable<Location> locations) ParseDataLine(string line, int i)
+        => line.Split(':', TrimAndSift) is [var platform, var paths]
+            ? (new(platform), paths.Split(',', TrimAndSift).Select(p => new Location(p)))
+            : throw new ParseException($"The wrong format of data. Occurred in {i}th row");
+
+    internal static Dictionary<Location, HashSet<Location>> UnravelAndGroupLocations(IEnumerable<Location> locations)
     {
-        Dictionary<Location, HashSet<Location>> res = [];
+        HashSetDictionary<Location, Location> res = [];
         foreach (var location in locations)
         {
             if (res.ContainsKey(location)) continue;
-            var generals = parseLocation(location).ToArray();
+            var generals = UnravelLocation(location).ToArray();
             for (var i = 1; i <= generals.Length; i++)
                 for (var j = i; j <= generals.Length; j++)
-                    add(generals[^i], generals[^j]);
+                    res.Add(generals[^i], generals[^j]);
         }
-        return res.ToFrozenDictionary(d => d.Key, d => (IReadOnlySet<Location>)d.Value.ToFrozenSet()).AsReadOnly();
+        return res;
+    }
 
-        void add(Location l, Location p) => (res.TryGetValue(l, out var set) ? set : res[l] = []).Add(p);
-        static IEnumerable<Location> parseLocation(Location location)
-        {
-            for (var i = location.Path.Length; i > 0; i = location.Path.LastIndexOf('/', i - 1))
-                yield return new Location(location.Path[0..i]);
-        }
+    #warning need to test UnravelLocation
+    internal static IEnumerable<Location> UnravelLocation(Location location)
+    {
+        for (var i = location.Path.Length; i > 0; i = location.Path.LastIndexOf('/', i - 1))
+            yield return new Location(location.Path[0..i]);
+    }
+
+    internal sealed class HashSetDictionary<K, V> : Dictionary<K, HashSet<V>> where K : notnull
+    {
+        public void Add(K key, V val) => (TryGetValue(key, out var set) ? set : this[key] = []).Add(val);
+        public FrozenDictionary<K, FrozenSet<V>> ToFrozen() => this.ToFrozenDictionary(kv => kv.Key, kv => kv.Value.ToFrozenSet());
     }
 }
