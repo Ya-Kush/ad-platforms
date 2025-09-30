@@ -27,9 +27,9 @@ public static class Platforms
                    _ => throw e
                });
 
-    public static Results<NoContent, BadRequest<string>> LoadFile(Stream data, [FromServices] IAdPlatformService service)
-        => service.ParseAndLoad(data)
-            .Match<Results<NoContent, BadRequest<string>>>(
+    public static async Task<Results<NoContent, BadRequest<string>>> LoadFile(Stream data, [FromServices] IAdPlatformService service)
+        => await service.ParseAndLoadAsync(data).AsValue()
+            .MatchAsync<Results<NoContent, BadRequest<string>>>(
                 () => NoContent(),
                 e => e switch
                 {
